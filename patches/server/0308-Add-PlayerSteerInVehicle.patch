@@ -1,0 +1,296 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bart Kouwenberg <bk28@curio.nl>
+Date: Fri, 17 Nov 2023 14:59:55 +0100
+Subject: [PATCH] Add-PlayerSteerInVehicle
+
+
+diff --git a/src/main/java/net/minecraft/server/network/ServerGamePacketListenerImpl.java b/src/main/java/net/minecraft/server/network/ServerGamePacketListenerImpl.java
+index a7e82f95db5c6c054175192f019072006a3ef31f..d4ef4962cc5a4a305a3dd951255b73ed67ca4902 100644
+--- a/src/main/java/net/minecraft/server/network/ServerGamePacketListenerImpl.java
++++ b/src/main/java/net/minecraft/server/network/ServerGamePacketListenerImpl.java
+@@ -1,5 +1,6 @@
+ package net.minecraft.server.network;
+ 
++import com.destroystokyo.paper.event.player.PlayerSteerVehicleEvent;
+ import com.google.common.collect.Lists;
+ import com.google.common.primitives.Floats;
+ import com.mojang.authlib.GameProfile;
+@@ -323,7 +324,7 @@ public class ServerGamePacketListenerImpl extends ServerCommonPacketListenerImpl
+     private boolean hasMoved; // Spigot
+     // CraftBukkit end
+ 
+-        // Purpur start
++    // Purpur start
+     private final com.google.common.cache.LoadingCache<CraftPlayer, Boolean> kickPermissionCache = com.google.common.cache.CacheBuilder.newBuilder()
+         .maximumSize(1000)
+         .expireAfterWrite(1, java.util.concurrent.TimeUnit.MINUTES)
+@@ -470,6 +471,7 @@ public class ServerGamePacketListenerImpl extends ServerCommonPacketListenerImpl
+     public void handlePlayerInput(ServerboundPlayerInputPacket packet) {
+         PacketUtils.ensureRunningOnSameThread(packet, this, this.player.serverLevel());
+         this.player.setPlayerInput(packet.getXxa(), packet.getZza(), packet.isJumping(), packet.isShiftKeyDown());
++        new PlayerSteerVehicleEvent(this.player.getBukkitEntity(), packet.getXxa(), packet.getZza(), packet.isJumping(), packet.isShiftKeyDown()).callEvent(); // CraftBukkit
+     }
+ 
+     private static boolean containsInvalidValues(double x, double y, double z, float yaw, float pitch) {
+@@ -554,14 +556,14 @@ public class ServerGamePacketListenerImpl extends ServerCommonPacketListenerImpl
+                 if (this.player.level().paperConfig().chunks.preventMovingIntoUnloadedChunks && (
+                     !worldserver.areChunksLoadedForMove(this.player.getBoundingBox().expandTowards(new Vec3(toX, toY, toZ).subtract(this.player.position()))) ||
+                         !worldserver.areChunksLoadedForMove(entity.getBoundingBox().expandTowards(new Vec3(toX, toY, toZ).subtract(entity.position())))
+-                    )) {
++                )) {
+                     this.connection.send(new ClientboundMoveVehiclePacket(entity));
+                     return;
+                 }
+                 // Paper end
+ 
+                 if (d10 - d9 > Math.max(100.0D, Math.pow((double) (org.spigotmc.SpigotConfig.movedTooQuicklyMultiplier * (float) i * speed), 2)) && !this.isSingleplayerOwner()) {
+-                // CraftBukkit end
++                    // CraftBukkit end
+                     ServerGamePacketListenerImpl.LOGGER.warn("{} (vehicle of {}) moved too quickly! {},{},{}", new Object[]{entity.getName().getString(), this.player.getName().getString(), d6, d7, d8});
+                     this.send(new ClientboundMoveVehiclePacket(entity));
+                     return;
+@@ -812,11 +814,11 @@ public class ServerGamePacketListenerImpl extends ServerCommonPacketListenerImpl
+         // Paper end - Don't suggest if tab-complete is disabled
+         // Paper start - async tab completion
+         TAB_COMPLETE_EXECUTOR.execute(() -> {
+-        StringReader stringreader = new StringReader(packet.getCommand());
++            StringReader stringreader = new StringReader(packet.getCommand());
+ 
+-        if (stringreader.canRead() && stringreader.peek() == '/') {
+-            stringreader.skip();
+-        }
++            if (stringreader.canRead() && stringreader.peek() == '/') {
++                stringreader.skip();
++            }
+             final String command = packet.getCommand();
+             final com.destroystokyo.paper.event.server.AsyncTabCompleteEvent event = new com.destroystokyo.paper.event.server.AsyncTabCompleteEvent(this.getCraftPlayer(), command, true, null);
+             event.callEvent();
+@@ -1159,7 +1161,7 @@ public class ServerGamePacketListenerImpl extends ServerCommonPacketListenerImpl
+                 if (byteLength > 256 * 4) {
+                     ServerGamePacketListenerImpl.LOGGER.warn(this.player.getScoreboardName() + " tried to send a book with with a page too large!");
+                     org.purpurmc.purpur.event.player.PlayerBookTooLargeEvent event = new org.purpurmc.purpur.event.player.PlayerBookTooLargeEvent(player.getBukkitEntity(), itemstack.asBukkitCopy()); if (event.shouldKickPlayer()) // Purpur
+-                    server.scheduleOnMain(() -> this.disconnect("Book too large!", org.bukkit.event.player.PlayerKickEvent.Cause.ILLEGAL_ACTION)); // Paper - kick event cause
++                        server.scheduleOnMain(() -> this.disconnect("Book too large!", org.bukkit.event.player.PlayerKickEvent.Cause.ILLEGAL_ACTION)); // Paper - kick event cause
+                     return;
+                 }
+                 byteTotal += byteLength;
+@@ -1183,7 +1185,7 @@ public class ServerGamePacketListenerImpl extends ServerCommonPacketListenerImpl
+             if (byteTotal > byteAllowed) {
+                 ServerGamePacketListenerImpl.LOGGER.warn(this.player.getScoreboardName() + " tried to send too large of a book. Book Size: " + byteTotal + " - Allowed:  "+ byteAllowed + " - Pages: " + pageList.size());
+                 org.purpurmc.purpur.event.player.PlayerBookTooLargeEvent event = new org.purpurmc.purpur.event.player.PlayerBookTooLargeEvent(player.getBukkitEntity(), itemstack.asBukkitCopy()); if (event.shouldKickPlayer()) // Purpur
+-                server.scheduleOnMain(() -> this.disconnect("Book too large!", org.bukkit.event.player.PlayerKickEvent.Cause.ILLEGAL_ACTION)); // Paper - kick event cause
++                    server.scheduleOnMain(() -> this.disconnect("Book too large!", org.bukkit.event.player.PlayerKickEvent.Cause.ILLEGAL_ACTION)); // Paper - kick event cause
+                 return;
+             }
+         }
+@@ -1429,8 +1431,8 @@ public class ServerGamePacketListenerImpl extends ServerCommonPacketListenerImpl
+                                 io.papermc.paper.event.player.PlayerFailMoveEvent event = fireFailMove(io.papermc.paper.event.player.PlayerFailMoveEvent.FailReason.MOVED_INTO_UNLOADED_CHUNK,
+                                     toX, toY, toZ, toYaw, toPitch, false);
+                                 if (!event.isAllowed()) {
+-                                this.internalTeleport(this.player.getX(), this.player.getY(), this.player.getZ(), this.player.getYRot(), this.player.getXRot(), Collections.emptySet());
+-                                return;
++                                    this.internalTeleport(this.player.getX(), this.player.getY(), this.player.getZ(), this.player.getYRot(), this.player.getXRot(), Collections.emptySet());
++                                    return;
+                                 }
+                                 // Paper end
+                             }
+@@ -1440,15 +1442,15 @@ public class ServerGamePacketListenerImpl extends ServerCommonPacketListenerImpl
+                                 float f2 = this.player.isFallFlying() ? 300.0F : 100.0F;
+ 
+                                 if (d10 - d9 > Math.max(f2, Math.pow((double) (org.spigotmc.SpigotConfig.movedTooQuicklyMultiplier * (float) i * speed), 2)) && !this.isSingleplayerOwner()) {
+-                                // CraftBukkit end
++                                    // CraftBukkit end
+                                     // Paper start - Add fail move event
+                                     io.papermc.paper.event.player.PlayerFailMoveEvent event = fireFailMove(io.papermc.paper.event.player.PlayerFailMoveEvent.FailReason.MOVED_TOO_QUICKLY,
+                                         toX, toY, toZ, toYaw, toPitch, true);
+                                     if (!event.isAllowed()) {
+                                         if (event.getLogWarning())
+-                                    ServerGamePacketListenerImpl.LOGGER.warn("{} moved too quickly! {},{},{}", new Object[]{this.player.getName().getString(), d6, d7, d8});
+-                                    this.teleport(this.player.getX(), this.player.getY(), this.player.getZ(), this.player.getYRot(), this.player.getXRot());
+-                                    return;
++                                            ServerGamePacketListenerImpl.LOGGER.warn("{} moved too quickly! {},{},{}", new Object[]{this.player.getName().getString(), d6, d7, d8});
++                                        this.teleport(this.player.getX(), this.player.getY(), this.player.getZ(), this.player.getYRot(), this.player.getXRot());
++                                        return;
+                                     }
+                                     // Paper end
+                                 }
+@@ -1519,7 +1521,7 @@ public class ServerGamePacketListenerImpl extends ServerCommonPacketListenerImpl
+                                 io.papermc.paper.event.player.PlayerFailMoveEvent event = fireFailMove(io.papermc.paper.event.player.PlayerFailMoveEvent.FailReason.MOVED_WRONGLY,
+                                     toX, toY, toZ, toYaw, toPitch, true);
+                                 if (!event.isAllowed()) {
+-                                flag2 = true; // Paper - diff on change, this should be moved wrongly
++                                    flag2 = true; // Paper - diff on change, this should be moved wrongly
+                                     if (event.getLogWarning())
+                                         ServerGamePacketListenerImpl.LOGGER.warn("{} moved wrongly!, ({})", this.player.getName().getString(), d11); // Purpur
+                                 }
+@@ -1644,7 +1646,7 @@ public class ServerGamePacketListenerImpl extends ServerCommonPacketListenerImpl
+ 
+     // Paper start - Add fail move event
+     private io.papermc.paper.event.player.PlayerFailMoveEvent fireFailMove(io.papermc.paper.event.player.PlayerFailMoveEvent.FailReason failReason,
+-               double toX, double toY, double toZ, float toYaw, float toPitch, boolean logWarning) {
++                                                                           double toX, double toY, double toZ, float toYaw, float toPitch, boolean logWarning) {
+         Player player = this.getCraftPlayer();
+         Location from = new Location(player.getWorld(), this.lastPosX, this.lastPosY, this.lastPosZ, this.lastYaw, this.lastPitch);
+         Location to = new Location(player.getWorld(), toX, toY, toZ, toYaw, toPitch);
+@@ -2188,31 +2190,31 @@ public class ServerGamePacketListenerImpl extends ServerCommonPacketListenerImpl
+         // CraftBukkit end
+         if (ServerGamePacketListenerImpl.isChatMessageIllegal(packet.message())) {
+             this.server.scheduleOnMain(() -> { // Paper - push to main for event firing
+-            this.disconnect(Component.translatable("multiplayer.disconnect.illegal_characters"), org.bukkit.event.player.PlayerKickEvent.Cause.ILLEGAL_CHARACTERS); // Paper - add cause
++                this.disconnect(Component.translatable("multiplayer.disconnect.illegal_characters"), org.bukkit.event.player.PlayerKickEvent.Cause.ILLEGAL_CHARACTERS); // Paper - add cause
+             }); // Paper - push to main for event firing
+         } else {
+             Optional<LastSeenMessages> optional = this.tryHandleChat(packet.message(), packet.timeStamp(), packet.lastSeenMessages());
+ 
+             if (optional.isPresent()) {
+                 // this.server.submit(() -> { // CraftBukkit - async chat
+-                    PlayerChatMessage playerchatmessage;
++                PlayerChatMessage playerchatmessage;
+ 
+-                    try {
+-                        playerchatmessage = this.getSignedMessage(packet, (LastSeenMessages) optional.get());
+-                    } catch (SignedMessageChain.DecodeException signedmessagechain_a) {
+-                        this.handleMessageDecodeFailure(signedmessagechain_a);
+-                        return;
+-                    }
++                try {
++                    playerchatmessage = this.getSignedMessage(packet, (LastSeenMessages) optional.get());
++                } catch (SignedMessageChain.DecodeException signedmessagechain_a) {
++                    this.handleMessageDecodeFailure(signedmessagechain_a);
++                    return;
++                }
+ 
+-                    CompletableFuture<FilteredText> completablefuture = this.filterTextPacket(playerchatmessage.signedContent());
+-                    CompletableFuture<ChatDecorator.Result> componentFuture = this.server.getChatDecorator().decorate(this.player, null, playerchatmessage.decoratedContent()); // Paper
++                CompletableFuture<FilteredText> completablefuture = this.filterTextPacket(playerchatmessage.signedContent());
++                CompletableFuture<ChatDecorator.Result> componentFuture = this.server.getChatDecorator().decorate(this.player, null, playerchatmessage.decoratedContent()); // Paper
+ 
+-                    this.chatMessageChain.append((executor) -> {
+-                        return CompletableFuture.allOf(completablefuture, componentFuture).thenAcceptAsync((filtered) -> { // Paper
+-                            PlayerChatMessage playerchatmessage1 = playerchatmessage.filter(completablefuture.join().mask()).withResult(componentFuture.join()); // Paper
+-                            this.broadcastChatMessage(playerchatmessage1);
+-                        }, this.server.chatExecutor); // CraftBukkit - async chat
+-                    });
++                this.chatMessageChain.append((executor) -> {
++                    return CompletableFuture.allOf(completablefuture, componentFuture).thenAcceptAsync((filtered) -> { // Paper
++                        PlayerChatMessage playerchatmessage1 = playerchatmessage.filter(completablefuture.join().mask()).withResult(componentFuture.join()); // Paper
++                        this.broadcastChatMessage(playerchatmessage1);
++                    }, this.server.chatExecutor); // CraftBukkit - async chat
++                });
+                 // }); // CraftBukkit - async chat
+             }
+ 
+@@ -2223,7 +2225,7 @@ public class ServerGamePacketListenerImpl extends ServerCommonPacketListenerImpl
+     public void handleChatCommand(ServerboundChatCommandPacket packet) {
+         if (ServerGamePacketListenerImpl.isChatMessageIllegal(packet.command())) {
+             this.server.scheduleOnMain(() -> { // Paper - push to main for event firing
+-            this.disconnect(Component.translatable("multiplayer.disconnect.illegal_characters"), org.bukkit.event.player.PlayerKickEvent.Cause.ILLEGAL_CHARACTERS); // Paper
++                this.disconnect(Component.translatable("multiplayer.disconnect.illegal_characters"), org.bukkit.event.player.PlayerKickEvent.Cause.ILLEGAL_CHARACTERS); // Paper
+             }); // Paper - push to main for event firing
+         } else {
+             Optional<LastSeenMessages> optional = this.tryHandleChat(packet.command(), packet.timeStamp(), packet.lastSeenMessages());
+@@ -2248,7 +2250,7 @@ public class ServerGamePacketListenerImpl extends ServerCommonPacketListenerImpl
+         // CraftBukkit start
+         String command = "/" + packet.command();
+         if (org.spigotmc.SpigotConfig.logCommands) { // Paper
+-        ServerGamePacketListenerImpl.LOGGER.info(this.player.getScoreboardName() + " issued server command: " + command);
++            ServerGamePacketListenerImpl.LOGGER.info(this.player.getScoreboardName() + " issued server command: " + command);
+         } // Paper
+ 
+         PlayerCommandPreprocessEvent event = new PlayerCommandPreprocessEvent(this.getCraftPlayer(), command, new LazyPlayerSet(this.server));
+@@ -2313,7 +2315,7 @@ public class ServerGamePacketListenerImpl extends ServerCommonPacketListenerImpl
+         if (!this.updateChatOrder(timestamp)) {
+             ServerGamePacketListenerImpl.LOGGER.warn("{} sent out-of-order chat: '{}': {} > {}", this.player.getName().getString(), message, this.lastChatTimeStamp.get().getEpochSecond(), timestamp.getEpochSecond()); // Paper
+             this.server.scheduleOnMain(() -> { // Paper - push to main
+-            this.disconnect(Component.translatable("multiplayer.disconnect.out_of_order_chat"), org.bukkit.event.player.PlayerKickEvent.Cause.OUT_OF_ORDER_CHAT); // Paper - kick event causes
++                this.disconnect(Component.translatable("multiplayer.disconnect.out_of_order_chat"), org.bukkit.event.player.PlayerKickEvent.Cause.OUT_OF_ORDER_CHAT); // Paper - kick event causes
+             }); // Paper - push to main
+             return Optional.empty();
+         } else {
+@@ -2379,7 +2381,7 @@ public class ServerGamePacketListenerImpl extends ServerCommonPacketListenerImpl
+             this.handleCommand(s);
+         } else if (this.player.getChatVisibility() == ChatVisiblity.SYSTEM) {
+             // Do nothing, this is coming from a plugin
+-        // Paper start
++            // Paper start
+         } else if (true) {
+             final ChatProcessor cp = new ChatProcessor(this.server, this.player, original, async);
+             cp.process();
+@@ -2463,7 +2465,7 @@ public class ServerGamePacketListenerImpl extends ServerCommonPacketListenerImpl
+         org.spigotmc.AsyncCatcher.catchOp("Command Dispatched Async: " + s); // Paper - Add async catcher
+         //co.aikar.timings.MinecraftTimings.playerCommandTimer.startTiming(); // Paper // Purpur
+         if ( org.spigotmc.SpigotConfig.logCommands ) // Spigot
+-        this.LOGGER.info(this.player.getScoreboardName() + " issued server command: " + s);
++            this.LOGGER.info(this.player.getScoreboardName() + " issued server command: " + s);
+ 
+         CraftPlayer player = this.getCraftPlayer();
+ 
+@@ -2809,7 +2811,7 @@ public class ServerGamePacketListenerImpl extends ServerCommonPacketListenerImpl
+                             }
+ 
+                             if (event.isCancelled()) {
+-                            ServerGamePacketListenerImpl.this.player.containerMenu.sendAllDataToRemote(); // Paper - Refresh player inventory
++                                ServerGamePacketListenerImpl.this.player.containerMenu.sendAllDataToRemote(); // Paper - Refresh player inventory
+                                 return;
+                             }
+                             // CraftBukkit end
+@@ -3296,16 +3298,16 @@ public class ServerGamePacketListenerImpl extends ServerCommonPacketListenerImpl
+                 recipeName = CraftNamespacedKey.toMinecraft(paperEvent.getRecipe());
+                 makeAll = paperEvent.isMakeAll();
+                 if (org.bukkit.event.player.PlayerRecipeBookClickEvent.getHandlerList().getRegisteredListeners().length > 0) {
+-                // Paper end
+-                // CraftBukkit start - implement PlayerRecipeBookClickEvent
+-                org.bukkit.inventory.Recipe recipe = this.cserver.getRecipe(CraftNamespacedKey.fromMinecraft(recipeName)); // Paper
+-                if (recipe == null) {
+-                    return;
+-                }
+-                // Paper start
+-                org.bukkit.event.player.PlayerRecipeBookClickEvent event = CraftEventFactory.callRecipeBookClickEvent(this.player, recipe, makeAll);
+-                recipeName = CraftNamespacedKey.toMinecraft(((org.bukkit.Keyed) event.getRecipe()).getKey());
+-                makeAll = event.isShiftClick();
++                    // Paper end
++                    // CraftBukkit start - implement PlayerRecipeBookClickEvent
++                    org.bukkit.inventory.Recipe recipe = this.cserver.getRecipe(CraftNamespacedKey.fromMinecraft(recipeName)); // Paper
++                    if (recipe == null) {
++                        return;
++                    }
++                    // Paper start
++                    org.bukkit.event.player.PlayerRecipeBookClickEvent event = CraftEventFactory.callRecipeBookClickEvent(this.player, recipe, makeAll);
++                    recipeName = CraftNamespacedKey.toMinecraft(((org.bukkit.Keyed) event.getRecipe()).getKey());
++                    makeAll = event.isShiftClick();
+                 }
+                 if (!(this.player.containerMenu instanceof RecipeBookMenu<?> recipeBookMenu)) {
+                     return;
+@@ -3402,19 +3404,19 @@ public class ServerGamePacketListenerImpl extends ServerCommonPacketListenerImpl
+                 itemstack = CraftItemStack.asNMSCopy(event.getCursor());
+ 
+                 switch (event.getResult()) {
+-                case ALLOW:
+-                    // Plugin cleared the id / stacksize checks
+-                    flag2 = true;
+-                    break;
+-                case DEFAULT:
+-                    break;
+-                case DENY:
+-                    // Reset the slot
+-                    if (packet.getSlotNum() >= 0) {
+-                        this.player.connection.send(new ClientboundContainerSetSlotPacket(this.player.inventoryMenu.containerId, this.player.inventoryMenu.incrementStateId(), packet.getSlotNum(), this.player.inventoryMenu.getSlot(packet.getSlotNum()).getItem()));
+-                        this.player.connection.send(new ClientboundContainerSetSlotPacket(-1, this.player.inventoryMenu.incrementStateId(), -1, ItemStack.EMPTY));
+-                    }
+-                    return;
++                    case ALLOW:
++                        // Plugin cleared the id / stacksize checks
++                        flag2 = true;
++                        break;
++                    case DEFAULT:
++                        break;
++                    case DENY:
++                        // Reset the slot
++                        if (packet.getSlotNum() >= 0) {
++                            this.player.connection.send(new ClientboundContainerSetSlotPacket(this.player.inventoryMenu.containerId, this.player.inventoryMenu.incrementStateId(), packet.getSlotNum(), this.player.inventoryMenu.getSlot(packet.getSlotNum()).getItem()));
++                            this.player.connection.send(new ClientboundContainerSetSlotPacket(-1, this.player.inventoryMenu.incrementStateId(), -1, ItemStack.EMPTY));
++                        }
++                        return;
+                 }
+             }
+             // CraftBukkit end

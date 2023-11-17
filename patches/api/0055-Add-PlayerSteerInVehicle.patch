@@ -1,0 +1,79 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bart Kouwenberg <bk28@curio.nl>
+Date: Fri, 17 Nov 2023 14:59:55 +0100
+Subject: [PATCH] Add-PlayerSteerInVehicle
+
+
+diff --git a/src/main/java/io/papermc/paper/event/player/PlayerSteerVehicleEvent.java b/src/main/java/io/papermc/paper/event/player/PlayerSteerVehicleEvent.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..c2d097ae1d3f09708ae516099cad7a4f5601e76a
+--- /dev/null
++++ b/src/main/java/io/papermc/paper/event/player/PlayerSteerVehicleEvent.java
+@@ -0,0 +1,67 @@
++package com.destroystokyo.paper.event.player;
++import org.bukkit.entity.Player;
++import org.bukkit.event.player.PlayerEvent;
++import org.bukkit.event.HandlerList;
++import org.jetbrains.annotations.NotNull;
++
++/**
++ * Called when player is steering any vehicle.
++ */
++public class PlayerSteerVehicleEvent extends PlayerEvent {
++
++    private static final HandlerList handlers
++        = new HandlerList();
++
++    private final float sideways;
++    private final float forward;
++
++    private final boolean isJumping;
++    private final boolean isSneaking;
++
++    public PlayerSteerVehicleEvent(Player player, float sideways, float forward, boolean isJumping, boolean isSneaking) {
++        super(player);
++        this.sideways = sideways;
++        this.forward = forward;
++        this.isJumping = isJumping;
++        this.isSneaking = isSneaking;
++    }
++
++    /**
++     * @return Sideways movement speed between -1.0f and 1.0f. Positive to left.
++     */
++    public float getSidewaysSpeed() {
++        return sideways;
++    }
++
++    /**
++     * @return Sideways movement speed between -1.0f and 1.0f. Positive forward.
++     */
++    public float getForwardSpeed() {
++        return forward;
++    }
++
++    /**
++     * @return Whether jump flag is set.
++     */
++    public boolean isJumping() {
++        return isJumping;
++    }
++
++    /**
++     * @return Whether sneak flag is set.
++     */
++    public boolean isSneaking() {
++        return isSneaking;
++    }
++
++    @NotNull
++    @Override
++    public HandlerList getHandlers() {
++        return handlers;
++    }
++
++    @NotNull
++    public static HandlerList getHandlerList() {
++        return handlers;
++    }
++}
